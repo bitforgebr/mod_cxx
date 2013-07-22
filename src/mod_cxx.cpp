@@ -25,13 +25,13 @@
 extern "C" const command_rec config_comands[] =
 {
     // Server configs
-    AP_INIT_TAKE1("apps_dir", CAST_FN(set_apps_dir), nullptr, RSRC_CONF | ACCESS_CONF,
+    AP_INIT_TAKE1("CxxAppsDir", CAST_FN(set_apps_dir), nullptr, RSRC_CONF,
                   "Directory where protocol and database plugins are found."),
 
     // Directory configs
-    AP_INIT_TAKE1("app", CAST_FN(set_app_name), nullptr, RSRC_CONF | ACCESS_CONF,
+    AP_INIT_TAKE1("CxxApp", CAST_FN(set_app_name), nullptr, ACCESS_CONF,
                   "Application to load."),
-    AP_INIT_ITERATE2("app_params", CAST_FN(set_app_params), nullptr, RSRC_CONF | ACCESS_CONF,
+    AP_INIT_ITERATE2("CxxAppParams", CAST_FN(set_app_params), nullptr, ACCESS_CONF,
                      "Params to be passed to the application."),
 
     { nullptr }

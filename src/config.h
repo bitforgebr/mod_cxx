@@ -23,13 +23,26 @@ public:
     void *operator new(size_t _size, apr_pool_t *_pool);
 };
 
-struct server_config
+enum ConfigType
+{
+    ctNone,
+    ctServer,
+    ctDirectory
+};
+
+struct abstract_config
+{
+public:
+    ConfigType config_type;
+};
+
+struct server_config: public abstract_config
 {
 public:
     const char *apps_dir = nullptr;
 };
 
-struct directory_config
+struct directory_config: public abstract_config
 {
 protected:
     static const char *s_prefix;
@@ -37,9 +50,7 @@ protected:
     uint32_t id = 0;
 
 public:
-    //FIXME: This should be server only
-    const char  *apps_dir = nullptr;
-
+    const char *apps_dir = nullptr;
     const char  *app_name = nullptr;
     value_pairs *app_config = nullptr;
 

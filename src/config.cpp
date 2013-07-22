@@ -58,15 +58,15 @@ uint32_t directory_config::getID()
 
 void *create_server_config(apr_pool_t *_pool, server_rec *_server)
 {
-    void* result = apr_pcalloc(_pool, sizeof(server_config));
-    bzero(result, sizeof(server_config));
+    server_config *result = static_cast<server_config *>(apr_pcalloc(_pool, sizeof(server_config)));
+    result->config_type = ctServer;
     return result;
 }
 
 void *create_directory_config(apr_pool_t *_pool, char *_dir)
 {
-    void* result = apr_pcalloc(_pool, sizeof(directory_config));
-    bzero(result, sizeof(directory_config));
+    directory_config *result = static_cast<directory_config *>(apr_pcalloc(_pool, sizeof(directory_config)));
+    result->config_type = ctServer;
     return result;
 }
 
@@ -74,10 +74,13 @@ const char *set_apps_dir(cmd_parms *_parms, void *_config, const char *_arg)
 {
     if (_config)
     {
-        const char *dir = 0;
+        const char *dir = nullptr;
 
         if (_arg)
         {
+            /*
+             * Check for acess permissions?
+             */
             if (true || access(_arg, R_OK | X_OK))
             {
                 dir = strpooldup(_arg, strlen(_arg), _parms->pool);
@@ -97,10 +100,17 @@ const char *set_apps_dir(cmd_parms *_parms, void *_config, const char *_arg)
             dir = strpooldup("[NULL]", 7, _parms->pool);
         }
 
-        if (ap_check_cmd_context(_parms, NOT_IN_DIR_LOC_FILE))
-            static_cast<server_config *>(_config)->apps_dir = dir;
+        if (static_cast<abstract_config *>(_config)->config_type == ctServer)
+        {
+            server_config *sc = static_cast<server_config *>(_config);
+            sc->apps_dir = dir;
+        }
         else
-            static_cast<directory_config *>(_config)->apps_dir = dir;
+        {
+            directory_config *dc = static_cast<directory_config *>(_config);
+            dc->apps_dir = dir;
+        }
+
     }
 
     return NULL;
@@ -109,20 +119,18 @@ const char *set_apps_dir(cmd_parms *_parms, void *_config, const char *_arg)
 
 const char *set_app_name(cmd_parms *_parms, void *_config, const char *_arg)
 {
-    if (_config)
+    if (_config && static_cast<abstract_config *>(_config)->config_type == ctDirectory)
     {
-        const char *appName = 0;
+        directory_config *dc = static_cast<directory_config *>(_config);
 
         if (_arg)
         {
-            appName = strpooldup(_arg, strlen(_arg), _parms->pool);
+            dc->app_name = strpooldup(_arg, strlen(_arg), _parms->pool);
         }
         else
         {
-            appName = strpooldup("[NULL]", 7, _parms->pool);
+            dc->app_name = strpooldup("[NULL]", 7, _parms->pool);
         }
-
-        static_cast<directory_config *>(_config)->app_name = appName;
     }
 
     return NULL;
@@ -131,17 +139,20 @@ const char *set_app_name(cmd_parms *_parms, void *_config, const char *_arg)
 
 const char *set_app_params(cmd_parms *_parms, void *_config, const char *_key, const char *_value)
 {
-    if (_config && _key)
+    if (_config && _key && static_cast<abstract_config *>(_config)->config_type == ctDirectory)
     {
+        directory_config *dc = static_cast<directory_config *>(_config);
+
         value_pairs *map = static_cast<value_pairs *>(apr_pcalloc(_parms->pool, sizeof(value_pairs)));
 
-        if (! static_cast<directory_config *>(_config)->app_config)
+        if (!dc->app_config)
         {
-            static_cast<directory_config *>(_config)->app_config = map;
+            dc->app_config = map;
         }
         else
         {
-            value_pairs *it = static_cast<directory_config *>(_config)->app_config;
+            value_pairs *it = dc->app_config;
+
             while (it->next)
                 it = it->next;
 
@@ -157,5 +168,7 @@ const char *set_app_params(cmd_parms *_parms, void *_config, const char *_key, c
         else
             map->second = 0;
     }
+
     return NULL;
 }
+

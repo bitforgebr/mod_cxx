@@ -14,6 +14,8 @@
 #include "handlerfactory.h"
 #include "apachehandler.h"
 
+#include <cassert>
+
 #ifdef APLOG_USE_MODULE
 APLOG_USE_MODULE(cxx);
 #endif
@@ -94,6 +96,12 @@ extern "C" int apache_request_handler(request_rec* _request)
     server_config* srv_conf = static_cast<server_config*>(ap_get_module_config(_request->server->module_config, &cxx_module));
     directory_config* dir_conf = static_cast<directory_config*>(ap_get_module_config(_request->per_dir_config, &cxx_module));
 
+    ap_log_error(APLOG_MARK, LOG_WARNING, 0, _request->server, "Srv: %d", _request->handler, MODULE_NAME, srv_conf->config_type);
+    ap_log_error(APLOG_MARK, LOG_WARNING, 0, _request->server, "App: %s Dir: %d", _request->handler, MODULE_NAME, dir_conf->app_name, dir_conf->config_type);
+    
+    assert(srv_conf->config_type == ctServer);
+    assert(dir_conf->config_type == ctDirectory);
+    
     ApacheHanlderIO handlerIO;
 
     if(!handlerFactory)
