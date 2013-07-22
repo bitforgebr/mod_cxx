@@ -16,6 +16,8 @@
 #include "handlers.h"
 #include "globals_private.h"
 
+extern "C" int apache_request_handler(request_rec* _request);
+
 namespace bitforge
 {
 
@@ -36,8 +38,7 @@ protected:
     apr_pool_t*         m_pool = nullptr;
 
     const char*         m_appsDir = nullptr;
-    const value_pairs*  m_databaseConfig = nullptr;
-    const value_pairs*  m_protocolConfig = nullptr;
+    const value_pairs*  m_appConfig = nullptr;
 
     apr_bucket_brigade* m_inbb = nullptr;
     apr_bucket*         m_inBucket = nullptr;
@@ -167,14 +168,9 @@ public:
         return m_appsDir;
     }
 
-    virtual const value_pairs* getDatabseConfig() override
+    virtual const value_pairs* getAppConfig() override
     {
-        return m_databaseConfig;
-    }
-
-    virtual const value_pairs* getProtocolConfig() override
-    {
-        return m_protocolConfig;
+        return m_appConfig;
     }
 
     virtual Session* getSession() override;
@@ -185,14 +181,9 @@ public:
         m_pool = m_request->pool;
     }
 
-    void setDatabaseConfig(const value_pairs* _value)
+    void setAppConfig(const value_pairs* _value)
     {
-        m_databaseConfig = _value;
-    }
-
-    void setProtocolConfig(const value_pairs* _value)
-    {
-        m_protocolConfig = _value;
+        m_appConfig = _value;
     }
 
     void setAppsDir(const char* _value)

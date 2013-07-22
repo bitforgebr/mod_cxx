@@ -8,15 +8,144 @@
  * Copyright (c) 2012 All Right Reserved,
  */
 
-#include "apachehandler.h"
+#include "mod_cxx.h"
+#include "config.h"
 
-#include <http_log.h>
+#include "handlerfactory.h"
+#include "apachehandler.h"
 
 #ifdef APLOG_USE_MODULE
 APLOG_USE_MODULE(cxx);
-#endif 
+#endif
+
+#include <http_log.h>
+#include <boost/concept_check.hpp>
 
 #define SESSION_FILE_PREFIX "mod_bfms_sess_"
+
+using namespace bitforge;
+
+static HandlerFactory* handlerFactory = nullptr;
+
+#ifndef NDEBUG
+int print_headers(void* _r, const char* _key, const char* _value)
+{
+    request_rec* _request = static_cast<request_rec*>(_r);
+
+    ap_rputs("<tr><td>", _request);
+    ap_rputs(_key, _request);
+    ap_rputs("</td><td>", _request);
+    ap_rputs(_value, _request);
+    ap_rputs("</td></tr>", _request);
+
+    return -1; // continue
+}
+
+void print_value_pairs(const value_pairs* _pairs, request_rec* _request)
+{
+    ap_rputs("<table>", _request);
+
+    const value_pairs* it = _pairs;
+
+    while(it)
+    {
+        if(!it->first.empty())
+        {
+            ap_rputs("<tr><td>", _request);
+            ap_rputs(it->first.c_str(), _request);
+            ap_rputs("</td><td>", _request);
+
+            if(!it->second.empty())
+            {
+                ap_rputs(it->second.c_str(), _request);
+            }
+            else
+            {
+                ap_rputs("[NULL]", _request);
+            }
+
+            ap_rputs("</td></tr>\n", _request);
+        }
+
+        it = it->next;
+    }
+
+    ap_rputs("</table>", _request);
+}
+#endif
+
+extern "C" int apache_request_handler(request_rec* _request)
+{
+    // Verify that the request belongs to this handler
+    if(!_request || strcmp(_request->handler, MODULE_NAME) != 0)
+    {
+#ifndef NDEBUG
+        ap_log_error(APLOG_MARK, LOG_WARNING, 0, _request->server, "Invalid module name: '%s' != '%s'", _request->handler, MODULE_NAME);
+#endif
+        return DECLINED;
+    }
+
+    // Verify the method
+    if((_request->method_number != M_GET) && (_request->method_number != M_POST) && (_request->method_number != M_PUT))
+    {
+        return HTTP_METHOD_NOT_ALLOWED;
+    }
+
+    server_config* srv_conf = static_cast<server_config*>(ap_get_module_config(_request->server->module_config, &cxx_module));
+    directory_config* dir_conf = static_cast<directory_config*>(ap_get_module_config(_request->per_dir_config, &cxx_module));
+
+    ApacheHanlderIO handlerIO;
+
+    if(!handlerFactory)
+    {
+        const char* apps_dir;
+
+        if(srv_conf && srv_conf->apps_dir)
+        {
+            apps_dir = srv_conf->apps_dir;
+        }
+        else if(dir_conf && dir_conf->apps_dir)
+        {
+            apps_dir = dir_conf->apps_dir;
+        }
+        else
+            apps_dir = nullptr;
+
+        if (!apps_dir)
+        {
+            ap_log_error(APLOG_MARK, LOG_ERR, 0, _request->server, "Missing apps directory in apache's config.", _request->handler, MODULE_NAME);
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        handlerFactory = new HandlerFactory(_request, _request->server->process->pool, apps_dir);
+
+        handlerIO.setAppsDir(apps_dir);
+    }
+
+    HandlerCache* handler = handlerFactory->getHandler(_request, dir_conf);
+
+    if(handler)
+    {
+        handlerIO.setRequest(_request);
+        handlerIO.setAppConfig(dir_conf->app_config);
+
+        if(setjmp(handlerIO.err_env) == 0)
+        {
+            handler->handlerfn(&handlerIO);
+            return OK;
+        }
+        else
+        {
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+    }
+    else
+    {
+        ap_log_error(APLOG_MARK, LOG_WARNING, 0, _request->server, "Error finding plugin: '%s'", dir_conf->app_name);
+    }
+
+    return HTTP_INTERNAL_SERVER_ERROR;
+}
 
 namespace bitforge
 {
@@ -270,7 +399,7 @@ void ApacheHanlderIO::logError(ErrorLevel _level, const char* _message)
         break;
     };
 
-    ap_log_rerror(__FILE__, __LINE__, level, 0, status, m_request, "%s", _message);
+    ap_log_rerror(__FILE__, __LINE__, level, status, 0, m_request, "%s", _message);
 }
 
 void ApacheHanlderIO::abort(const char* _message)
@@ -690,7 +819,7 @@ Session* ApacheHanlderIO::getSession()
 
 void ApacheHanlderIO::checkCleanup()
 {
-    if ( m_lastCheck < apr_time_now() + ( APR_USEC_PER_SEC * 60 ) )
+    if (m_pool && (m_lastCheck < apr_time_now() + ( APR_USEC_PER_SEC * 60 )))
     {
         m_lastCheck = apr_time_now();
 

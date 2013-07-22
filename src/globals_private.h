@@ -13,7 +13,7 @@
 #ifndef __INCLUDE_MOD_CXX_GLOBALS_PRIVATE_H
 #define __INCLUDE_MOD_CXX_GLOBALS_PRIVATE_H
 
-#define MODULE_NAME     "cxx"
+#define MODULE_NAME "cxx"
 
 #include <glob.h>
 #include <string>

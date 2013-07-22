@@ -52,9 +52,7 @@ public:
     virtual bool getPUT(const char *_key, NCString &_value) = 0;
 
     virtual const char* getAppsDir() = 0;
-
-    virtual const value_pairs * getDatabseConfig() = 0;
-    virtual const value_pairs * getProtocolConfig() = 0;
+    virtual const value_pairs * getAppConfig() = 0;
 
     virtual Session* getSession() = 0;
 

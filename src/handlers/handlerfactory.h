@@ -43,7 +43,7 @@ private:
 public:
     handle_request_t handlerfn = nullptr;
 };
-typedef std::map<uint32_t, HandlerCache*> HandlerCacheList;
+typedef std::map<uint32_t, HandlerCache *> HandlerCacheList;
 
 class HandlerFactory
 {
@@ -60,10 +60,10 @@ protected:
 #endif
 
 public:
-    HandlerFactory ( request_rec *_request, apr_pool_t *_pool, const char *_handlerDirectory );
+    HandlerFactory(request_rec *_request, apr_pool_t *_pool, const char *_handlerDirectory);
     ~HandlerFactory();
 
-    HandlerCache* getProtocolHandler ( request_rec *_request, protocol_def* _protocol );
+    HandlerCache *getHandler(request_rec *_request, directory_config *_directoryConfig);
 };
 
 }

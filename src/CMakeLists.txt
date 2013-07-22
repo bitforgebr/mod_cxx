@@ -13,7 +13,6 @@ endif()
 add_library(mod_cxx MODULE
     mod_cxx.cpp
     config.cpp
-    handlers/default.cpp
     handlers/handlerfactory.cpp
     handlers/apachehandler.cpp
 )
@@ -37,7 +36,7 @@ set_target_properties(mod_cxx PROPERTIES PREFIX "")
 get_property(output TARGET mod_cxx PROPERTY LOCATION)
 add_custom_command(TARGET mod_cxx POST_BUILD COMMAND strip ${STRIP_ARGS} ${output} COMMENT Stripping)
 
-foreach(i "/usr/lib/apache2/modules" "/etc/httpd/modules/" "/usr/local/modules/" "/usr/lib64/httpd/modules")
+foreach(i "/usr/lib/apache2/modules" "/etc/httpd/modules/" "/usr/local/modules/")
     if(IS_DIRECTORY ${i})
         set(OUTPUT_DIR ${i})
         break()

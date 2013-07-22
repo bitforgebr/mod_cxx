@@ -11,10 +11,8 @@
 #ifndef __INCLUDE_MOD_CXX_HANDLERS_HELPERS_H
 #define __INCLUDE_MOD_CXX_HANDLERS_HELPERS_H
 
-#include <bf/bf.h>
 #include <bf/inthex.h>
 #include <handlers.h>
-#include <bf/inthex.h>
 
 #include <cassert>
 

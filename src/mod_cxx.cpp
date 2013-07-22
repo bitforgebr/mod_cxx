@@ -13,7 +13,7 @@
 
 #include "mod_cxx.h"
 #include "config.h"
-#include "handlers/default.h"
+#include "handlers/apachehandler.h"
 
 /*
  * This prag is needed because of apache's macros do not initialize
@@ -29,14 +29,10 @@ extern "C" const command_rec config_comands[] =
                   "Directory where protocol and database plugins are found."),
 
     // Directory configs
-    AP_INIT_TAKE3("db_plugin", CAST_FN(set_db_plugin), nullptr, RSRC_CONF | ACCESS_CONF,
-                  "Database plugin type."),
-
-    AP_INIT_ITERATE2("db_param", CAST_FN(set_db_plugin_params), nullptr, RSRC_CONF | ACCESS_CONF,
-                     "Params to be passed onto the database."),
-
-    AP_INIT_ITERATE2("protocol_params", CAST_FN(set_protocol_params), nullptr, RSRC_CONF | ACCESS_CONF,
-                     "Params to be passed onto the protocol plugin."),
+    AP_INIT_TAKE1("app", CAST_FN(set_app_name), nullptr, RSRC_CONF | ACCESS_CONF,
+                  "Application to load."),
+    AP_INIT_ITERATE2("app_params", CAST_FN(set_app_params), nullptr, RSRC_CONF | ACCESS_CONF,
+                     "Params to be passed to the application."),
 
     { nullptr }
 };
@@ -46,16 +42,16 @@ extern "C" const command_rec config_comands[] =
 
 extern "C" void cxx_hooks(apr_pool_t*)
 {
-    ap_hook_handler(default_handler, nullptr, nullptr, APR_HOOK_MIDDLE);
+    ap_hook_handler(apache_request_handler, nullptr, nullptr, APR_HOOK_MIDDLE);
 }
 
 VISIBILITY module AP_MODULE_DECLARE_DATA cxx_module =
 {
     STANDARD20_MODULE_STUFF,
-    create_directory_config,		/* per-directory config struct */
-    nullptr,						/* merge per-directoy config struct */
-    create_server_config,			/* per-host config struct */
-    nullptr,						/* merge per-host config struct */
-    config_comands,					/* config for this module */
-    cxx_hooks						/* register this module's hooks */
+    create_directory_config,    /* per-directory config struct */
+    nullptr,                    /* merge per-directoy config struct */
+    create_server_config,       /* per-host config struct */
+    nullptr,                    /* merge per-host config struct */
+    config_comands,             /* config for this module */
+    cxx_hooks                   /* register this module's hooks */
 };

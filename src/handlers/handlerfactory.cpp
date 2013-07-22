@@ -10,11 +10,11 @@
 
 #include "handlerfactory.h"
 
-#include <http_log.h>
-
 #ifdef APLOG_USE_MODULE
 APLOG_USE_MODULE(cxx);
-#endif 
+#endif
+
+#include <http_log.h>
 
 #include <dlfcn.h>
 #include <unistd.h>
@@ -30,7 +30,7 @@ namespace bitforge
 
 void report_error ( request_rec *_request, int _ret, const char* _file, const int _line )
 {
-	ap_log_rerror ( _file, _line, APLOG_CRIT, OK, _ret, _request, "%s:%d error(%d): %s", _file, _line, _ret, strerror ( errno ) );
+    ap_log_rerror ( _file, _line, APLOG_CRIT, OK, _ret, _request, "%s:%d error(%d): %s", _file, _line, _ret, strerror ( errno ) );
     abort();
 }
 
@@ -74,9 +74,9 @@ HandlerFactory::~HandlerFactory()
 #endif
 }
 
-HandlerCache *HandlerFactory::getProtocolHandler ( request_rec *_request, protocol_def* _protocol )
+HandlerCache *HandlerFactory::getHandler ( request_rec *_request, bitforge::directory_config *_directoryConfig )
 {
-    uint32_t id = _protocol->getID ( _request->pool );
+    uint32_t id = _directoryConfig->getID ();
 
 #if __linux__ && defined(USE_AIO)
     //Check the watches to see if anything changed and needs to be reloaded
@@ -86,30 +86,31 @@ HandlerCache *HandlerFactory::getProtocolHandler ( request_rec *_request, protoc
     {
         //This doesn't work very well, so for now, just clear the whole cache.
 
-// 		struct inotify_event *event;
+//         struct inotify_event *event;
 //
-// 		int i = 0;
-// 		int length = aio_return( &aiowatch );
-
-// 		while ( i < length )
-// 		{
-// 			event = reinterpret_cast<struct inotify_event*>( &aiobuffer[i] );
+//         int i = 0;
+//         int length = aio_return(&aiowatch);
 //
-// 			PluginCacheList::iterator it = m_pluginCache.begin();
-// 			for( ; it != m_pluginCache.end(); ++it )
-// 			{
-// 				if ( it->second->watch = event->wd )
-// 				{
-// 					delete it->second;
-// 					m_pluginCache.erase( it );
-// 					goto FOUND_PLUGIN;
-// 				}
-// 			}
+//         while (i < length)
+//         {
+//             event = reinterpret_cast<struct inotify_event *>(&aiobuffer[i]);
 //
-// 			FOUND_PLUGIN:
-// 			inotify_rm_watch( m_notify, event->wd );
-// 			i += EVENT_SIZE + event->len;
-// 		}
+//             PluginCacheList::iterator it = m_pluginCache.begin();
+//
+//             for (; it != m_pluginCache.end(); ++it)
+//             {
+//                 if (it->second->watch = event->wd)
+//                 {
+//                     delete it->second;
+//                     m_pluginCache.erase(it);
+//                     goto FOUND_PLUGIN;
+//                 }
+//             }
+//
+//         FOUND_PLUGIN:
+//             inotify_rm_watch(m_notify, event->wd);
+//             i += EVENT_SIZE + event->len;
+//         }
 
         auto it = m_handlerCache.begin();
         for ( ; it != m_handlerCache.end(); ++it )
@@ -142,12 +143,12 @@ HandlerCache *HandlerFactory::getProtocolHandler ( request_rec *_request, protoc
     if ( m_handlerDirectory )
         str << m_handlerDirectory << '/';
 
-    str << _protocol->getHandlerName ( _request->pool );
+    str << _directoryConfig->getHandlerName( _request->pool );
 
-    void *lib = dlopen ( str.str().c_str(), RTLD_LAZY );
+    void *lib = dlopen( str.str().c_str(), RTLD_LAZY );
     if ( !lib )
     {
-        ap_log_rerror ( __FILE__, __LINE__, APLOG_ERR, OK, errno, _request, "Error loading library: '%s' reason '%s'", str.str().c_str(), dlerror() );
+        ap_log_rerror( __FILE__, __LINE__, APLOG_ERR, OK, errno, _request, "Error loading library: '%s' reason '%s'", str.str().c_str(), dlerror() );
         return 0;
     }
 
