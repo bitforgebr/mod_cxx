@@ -60,3 +60,22 @@ else()
         install(CODE "execute_process(COMMAND sudo /etc/init.d/apache2 restart)")
     endif()
 endif()
+
+if(EXISTS "/etc/slackware-version")
+    message(STATUS "I'm in a slackware")
+
+    add_custom_command(TARGET mod_cxx POST_BUILD COMMAND  mkdir "-p" "${CMAKE_HOME_DIRECTORY}/package/slackware/modcxx-0.1-x86_64-1/usr/lib64/httpd/modules" COMMENT "Creating slackware package dirs")
+    add_custom_command(TARGET mod_cxx POST_BUILD COMMAND  mkdir "-p" "${CMAKE_HOME_DIRECTORY}/package/slackware/modcxx-0.1-x86_64-1/usr/local/include/mod_cxx" COMMENT "Creating slackware package dirs")
+    
+    add_custom_command(TARGET mod_cxx POST_BUILD COMMAND  install ${MOD_CXX} "${CMAKE_HOME_DIRECTORY}/package/slackware/modcxx-0.1-x86_64-1/usr/lib64/httpd/modules" COMMENT "Installing mod_cxx to slackware package dir")
+    
+    add_custom_command(TARGET mod_cxx POST_BUILD COMMAND  install 
+        mod_cxx.h
+        globals.h
+        handlers.h
+        handlers_helpers.h
+    "${CMAKE_HOME_DIRECTORY}/package/slackware/modcxx-0.1-x86_64-1/usr/local/include/mod_cxx" COMMENT "Installing mod_cxx headers")
+
+    add_custom_command(TARGET mod_cxx POST_BUILD COMMAND makepkg -l y -c n ../modcxx-0.1-x86_64-1.tgz WORKING_DIRECTORY "${CMAKE_HOME_DIRECTORY}/package/slackware/modcxx-0.1-x86_64-1" COMMENT "Packaging mod_cxx")
+
+endif()
