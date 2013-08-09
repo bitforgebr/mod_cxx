@@ -25,7 +25,7 @@ public:
 
 enum ConfigType
 {
-    ctNone,
+    ctNone = 11,
     ctServer,
     ctDirectory
 };
