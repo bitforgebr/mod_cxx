@@ -16,6 +16,20 @@
 #include "handlers.h"
 #include "globals_private.h"
 
+#include <http_log.h>
+
+#ifdef APLOG_USE_MODULE
+APLOG_USE_MODULE(cxx);
+
+#define APACHE_LOG(LEVEL, SATUS, CODE, REC, STR, ...) \
+    do { ap_log_error(APLOG_MARK, LEVEL, SATUS, CODE, REC, STR, __VA_ARGS__ ); } while (false)
+#else
+#define APACHE_LOG(LEVEL, SATUS, CODE, REC, STR, ...) \
+    do { ap_log_error(APLOG_MARK, LEVEL, SATUS, REC, STR, __VA_ARGS__ ); } while (false)
+#endif
+
+
+
 extern "C" int apache_request_handler(request_rec* _request);
 
 namespace bitforge

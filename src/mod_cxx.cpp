@@ -25,7 +25,7 @@
 extern "C" const command_rec config_comands[] =
 {
     // Server configs
-    AP_INIT_TAKE1("CxxAppsDir", CAST_FN(set_apps_dir), nullptr, RSRC_CONF,
+    AP_INIT_TAKE1("CxxAppsDir", CAST_FN(set_apps_dir), nullptr, RSRC_CONF | ACCESS_CONF,
                   "Directory where protocol and database plugins are found."),
 
     // Directory configs

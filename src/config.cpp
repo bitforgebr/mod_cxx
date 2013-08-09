@@ -66,7 +66,7 @@ void *create_server_config(apr_pool_t *_pool, server_rec *_server)
 void *create_directory_config(apr_pool_t *_pool, char *_dir)
 {
     directory_config *result = static_cast<directory_config *>(apr_pcalloc(_pool, sizeof(directory_config)));
-    result->config_type = ctServer;
+    result->config_type = ctDirectory;
     return result;
 }
 
