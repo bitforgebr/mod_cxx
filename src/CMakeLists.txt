@@ -36,13 +36,20 @@ set_target_properties(mod_cxx PROPERTIES PREFIX "")
 get_property(output TARGET mod_cxx PROPERTY LOCATION)
 add_custom_command(TARGET mod_cxx POST_BUILD COMMAND strip ${STRIP_ARGS} ${output} COMMENT Stripping)
 
-foreach(i "/usr/lib/apache2/modules" "/etc/httpd/modules/" "/usr/local/modules/")
+foreach(i "/usr/lib/apache2/modules" "/etc/httpd/modules/" "/usr/lib64/httpd/modules/" "/usr/local/modules/")
     if(IS_DIRECTORY ${i})
         set(OUTPUT_DIR ${i})
         break()
     endif()
 endforeach()
 install(TARGETS mod_cxx LIBRARY DESTINATION ${OUTPUT_DIR})
+
+install(FILES
+    mod_cxx.h
+    globals.h
+    handlers.h
+    handlers_helpers.h
+    DESTINATION include/mod_cxx)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     install(CODE "execute_process(COMMAND /usr/local/sbin/apachectl restart)")
