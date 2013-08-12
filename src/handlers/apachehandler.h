@@ -23,7 +23,7 @@
 APLOG_USE_MODULE(cxx);
 
 #define APACHE_LOG(LEVEL, STATUS, CODE, REC, STR) \
-    do { std::stringstream ss; ss << STR; ap_log_error(APLOG_MARK, 0, LEVEL, CODE, REC, ss.str().c_str()); } while (false)
+    do { std::stringstream ss; ss << STR; ap_log_error(__FILE__, __LINE__, cxx_module.module_index, LEVEL, STATUS, REC, ss.str().c_str()); } while (false)
 #else
 #define APACHE_LOG(LEVEL, STATUS, CODE, REC, STR) \
     do { std::stringstream ss; ss << STR; ap_log_error(__FILE__, __LINE__, LEVEL, STATUS, REC, ss.str().c_str()); } while (false)

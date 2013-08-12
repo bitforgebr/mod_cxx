@@ -10,10 +10,6 @@
 
 #include "handlerfactory.h"
 
-#ifdef APLOG_USE_MODULE
-APLOG_USE_MODULE(cxx);
-#endif
-
 #include <http_log.h>
 
 #include <dlfcn.h>
