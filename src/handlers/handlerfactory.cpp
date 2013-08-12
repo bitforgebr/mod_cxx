@@ -18,19 +18,18 @@ APLOG_USE_MODULE(cxx);
 
 #include <dlfcn.h>
 #include <unistd.h>
+#include "handlers/apachehandler.h"
 
 #include <sstream>
 
 namespace bitforge
 {
 
-#define DEBUGSTR(...) ap_log_rerror( __FILE__, __LINE__, APLOG_WARNING, OK, _request, __VA_ARGS__ );
-
 #define check_error(int) if ( int < 0 ) report_error(_request, int, __FILE__, __LINE__)
 
 void report_error ( request_rec *_request, int _ret, const char* _file, const int _line )
 {
-    ap_log_rerror ( _file, _line, APLOG_CRIT, OK, _ret, _request, "%s:%d error(%d): %s", _file, _line, _ret, strerror ( errno ) );
+	APACHE_LOG(APLOG_CRIT, OK, _ret, _request->server, _file << ":" << _line << " error (" << _ret << "): " << strerror ( errno ));
     abort();
 }
 
@@ -148,7 +147,7 @@ HandlerCache *HandlerFactory::getHandler ( request_rec *_request, bitforge::dire
     void *lib = dlopen( str.str().c_str(), RTLD_LAZY );
     if ( !lib )
     {
-        ap_log_rerror( __FILE__, __LINE__, APLOG_ERR, OK, errno, _request, "Error loading library: '%s' reason '%s'", str.str().c_str(), dlerror() );
+		APACHE_LOG(APLOG_ERR, OK, _ret, _request->server, "Error loading library:" << str.str().c_str() << " reason " << dlerror());
         return 0;
     }
 
@@ -156,7 +155,7 @@ HandlerCache *HandlerFactory::getHandler ( request_rec *_request, bitforge::dire
     if ( !handlerfn )
     {
         dlclose ( lib );
-        ap_log_rerror ( __FILE__, __LINE__, APLOG_ERR, OK, errno, _request, "Error finding symbol: '%s:handle_request' reason '%s'", str.str().c_str(), dlerror() );
+		APACHE_LOG(APLOG_ERR, OK, _ret, _request->server, "Error finding symbol:" << str.str().c_str() << " reason " << dlerror());
         return 0;
     }
 
@@ -182,8 +181,7 @@ HandlerCache *HandlerFactory::getHandler ( request_rec *_request, bitforge::dire
     check_error ( ret );
 #endif
 
-    ap_log_rerror ( __FILE__, __LINE__, APLOG_NOTICE, OK, errno, _request, "Loaded plugin: '%s'", str.str().c_str() );
-
+	APACHE_LOG(APLOG_NOTICE, OK, _ret, _request->server, "Loaded plugin:" << str.str().c_str());
     return cache;
 }
 

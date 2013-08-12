@@ -249,10 +249,10 @@ bool ApacheHanlderIO::checkInput(std::size_t &_length)
         if ( !len )
             return false;
 
-        ap_log_rerror(__FILE__, __LINE__, APLOG_ERR, OK, 0, m_request, "checkInput(%s - %d) - shouldn't happen.", len, atoi(len));
+        APACHE_LOG(APLOG_ERR, OK, 0, m_request->server, "checkInput(" << len << " - " << atoi(len) << ") - shouldn't happen.");
     }
 
-    ap_log_rerror(__FILE__, __LINE__, APLOG_ERR, OK, 0, m_request, "checkInput(%ld) - shouldn't happen.", _length);
+    APACHE_LOG(APLOG_ERR, OK, 0, m_request->server, "checkInput(" << _length << ") - shouldn't happen.");
     return false;
 }
 
@@ -396,12 +396,12 @@ void ApacheHanlderIO::logError(ErrorLevel _level, const char* _message)
         break;
     };
 
-    ap_log_rerror(__FILE__, __LINE__, level, status, 0, m_request, "%s", _message);
+    APACHE_LOG(level, status, 0, m_request->server, _message);
 }
 
 void ApacheHanlderIO::abort(const char* _message)
 {
-    ap_log_rerror(__FILE__, __LINE__, APLOG_CRIT, 0, 0, m_request, "%s", _message);
+    APACHE_LOG(APLOG_CRIT, OK, 0, m_request->server, _message);
     longjmp( err_env, -1 );
 }
 
@@ -537,319 +537,13 @@ const value_pairs* ApacheHanlderIO::getPUT()
 
 //#define debugline ap_log_rerror(__FILE__, __LINE__, APLOG_ERR, OK, m_parent->m_request, "cookie: %s:%d", basename(__FILE__), __LINE__ )
 
-class ApacheSession: public Session
-{
-private:
-    ApacheHanlderIO	*m_parent;
-    value_pairs		*m_values;
-    long long unsigned int		m_uuid;
-    const char		*m_fileName;
-
-    void init()
-    {
-#define BUFFER_SIZE 256
-        char buffer[BUFFER_SIZE];
-
-        value_pairs *cookie = m_parent->getHeaders("Cookie");
-
-        if ( cookie && !cookie->second.empty() )
-        {
-            strncpy( buffer, cookie->second.c_str(), BUFFER_SIZE );
-            buffer[BUFFER_SIZE - 1] = 0;
-            char *p = buffer;
-
-            while( *p )
-            {
-                if ( strncmp("SESSIONID=", p, 10) == 0 )
-                {
-                    p += 10;
-                    char *e = p;
-
-                    while ( *e && ( *e != ';' ) && ( !isspace( *e )))
-                        e++;
-
-                    *e = 0;
-
-                    m_uuid = strtoull(p, NULL, 16);
-                    break;
-                }
-
-                p++;
-            }
-        }
-
-        if ( !m_uuid )
-        {
-            apr_generate_random_bytes( reinterpret_cast<unsigned char *>(&m_uuid), sizeof(m_uuid));
-
-            //Set-Cookie: RMID=732423sdfs73242;expires=Fri, 31-Dec-2010 23:59:59 GMT;path=/;domain=.example.net
-            //@see http://www.ietf.org/rfc/rfc2109.txt
-            snprintf(buffer, BUFFER_SIZE, "SESSIONID=%llx;Max-Age=21600", m_uuid);
-            apr_table_add(m_parent->m_request->headers_out, "Set-Cookie", buffer);
-        }
-
-        const char *dir = nullptr;
-        apr_temp_dir_get( &dir, m_parent->m_pool );
-        snprintf(buffer, BUFFER_SIZE, "%s/" SESSION_FILE_PREFIX "%llx", dir, m_uuid);
-
-        m_fileName = strpooldup(buffer, m_parent->m_pool);
-
-        apr_file_t *file = nullptr;
-        if ( apr_file_open( &file, m_fileName, APR_READ | APR_WRITE | APR_CREATE | APR_BINARY | APR_BUFFERED,
-                            APR_OS_DEFAULT, m_parent->m_pool ) == APR_SUCCESS )
-        {
-            apr_finfo_t fileInfo;
-            apr_file_info_get( &fileInfo, APR_FINFO_SIZE, file );
-
-            value_pairs values;
-            value_pairs *v = &values;
-
-            char *data = reinterpret_cast<char*>( apr_palloc(m_parent->m_pool, fileInfo.size + 1 ));
-            char *end = data + fileInfo.size;
-            *end = 0; // Make sure it ends in 0
-
-            apr_size_t read = fileInfo.size;
-            if (( apr_file_read( file, data, &read ) != APR_SUCCESS ) || ( read != (apr_size_t)fileInfo.size ))
-            {
-                ap_log_rerror(__FILE__, __LINE__, APLOG_ERR, OK, 0, m_parent->m_request, "Error reading cookie file: '%s'", m_fileName);
-            }
-            else
-            {
-                while( data < end )
-                {
-                    v->next = reinterpret_cast<value_pairs*>( apr_pcalloc( m_parent->m_pool, sizeof(value_pairs) ));
-                    v = v->next;
-
-                    v->first = data;
-
-                    //Walk to the next value
-                    do {
-                        ++data;
-                    }
-                    while( *data && data < end );
-
-                    if ( ++data < end )
-                        v->second = data;
-
-                    //Walk to the next value
-                    do {
-                        ++data;
-                    }
-                    while( *data && data < end );
-                    ++data;
-                }
-
-                m_values = values.next;
-            }
-
-            apr_file_close( file );
-        }
-        else
-            ap_log_rerror(__FILE__, __LINE__, APLOG_ERR, OK, 0, m_parent->m_request, "Error reading cookie file: '%s'", m_fileName);
-#undef BUFFER_SIZE
-    }
-
-public:
-    ApacheSession(ApacheHanlderIO *_parent):
-        m_parent( _parent ),
-        m_values( 0 ),
-        m_uuid( 0 )
-    {
-        init();
-    }
-
-    virtual ~ApacheSession()
-    {
-        apr_file_t *file = nullptr;
-        if ( apr_file_open( &file, m_fileName, APR_READ | APR_WRITE | APR_CREATE | APR_TRUNCATE | APR_BINARY | APR_BUFFERED,
-                            APR_OS_DEFAULT, m_parent->m_pool ) == APR_SUCCESS )
-        {
-            char ZERO = 0;
-
-            apr_size_t wrote;
-
-            value_pairs *v = m_values;
-            while( v )
-            {
-#define CHECK_WRITE(FN) if ( (FN) != APR_SUCCESS ) break;
-
-                wrote =  v->first.length();
-                CHECK_WRITE( apr_file_write( file, const_cast<char*>( v->first.c_str() ), &wrote ) );
-
-                wrote =  1;
-                CHECK_WRITE( apr_file_write( file, &ZERO, &wrote ) );
-
-                wrote = v->second.length();
-                CHECK_WRITE( apr_file_write( file, const_cast<char*>( v->second.c_str() ), &wrote ) );
-
-                wrote =  1;
-                CHECK_WRITE( apr_file_write( file, &ZERO, &wrote ) );
-
-#undef CHECK_WRITE
-
-                v = v->next;
-            }
-            apr_file_close( file );
-        }
-    }
-
-    virtual value_pairs* getValue(const char* _value = nullptr) override
-    {
-        if ( !m_values )
-        {
-            if ( !m_uuid )
-                init();
-        }
-
-        if ( _value )
-            return const_cast<value_pairs*>( m_values->findFirst( _value ) );
-        else
-            return m_values;
-    }
-
-    virtual void setValue(value_pairs* _value) override
-    {
-        if ( !m_values )
-        {
-            if ( !m_uuid )
-                init();
-        }
-
-        value_pairs *src = _value;
-
-        while( src )
-        {
-            value_pairs *v = const_cast<value_pairs*>( m_values->findFirst( src->first ) );
-
-            if ( v )
-                v->second = src->second;
-            else
-            {
-                v = reinterpret_cast<value_pairs*>( apr_palloc( m_parent->m_pool, sizeof(value_pairs) ));
-                if ( !m_values )
-                    m_values = v;
-                else
-                    m_values->append( v );
-
-                v->first = src->first;
-                v->second = src->second;
-            }
-
-            src = src->next;
-        }
-    }
-
-    virtual bool getValue(const char* _key, const char **_value) override
-    {
-        value_pairs* v = getValue(_key);
-        if ( v && !v->second.empty() )
-        {
-            const std::size_t len = v->second.length();
-            char* str = static_cast<char*>(m_parent->malloc(len + 1));
-            memcpy(str, v->second.c_str(), len);
-            str[len] = 0;
-            *_value = str;
-            return true;
-        }
-        return false;
-    }
-
-    virtual bool getValue(const char* _key, NCString &_value) override
-    {
-        value_pairs* v = getValue(_key);
-        if ( v && !v->second.empty() )
-        {
-            _value = v->second;
-            return true;
-        }
-        return false;
-    }
-
-    virtual bool getValue(const char* _key, int &_value) override
-    {
-        value_pairs* v = getValue(_key);
-        if ( v && !v->second.empty() )
-        {
-            _value = atoi( v->second.c_str() );
-            return true;
-        }
-        return false;
-    }
-
-    virtual void setValue(const char* _key, const char *_value) override
-    {
-        value_pairs v;
-        v.first = strpooldup( _key, m_parent->m_pool );
-        v.second = strpooldup( _value, m_parent->m_pool );
-        setValue( &v );
-    }
-
-    virtual void setValue(const char* _key, const NCString& _value) override
-    {
-        value_pairs v;
-        v.first = strpooldup( _key, m_parent->m_pool );
-        v.second = strpooldup( _value.c_str(), m_parent->m_pool );
-        setValue( &v );
-    }
-
-    virtual void setValue(const char* _key, int _value) override
-    {
-        char buffer[10];
-        snprintf( buffer, 9, "%d", _value );
-        buffer[9] = 0;
-
-        value_pairs v;
-        v.first = strpooldup( _key, m_parent->m_pool );
-        v.second = strpooldup( buffer, m_parent->m_pool );
-        setValue( &v );
-    }
-};
-
 Session* ApacheHanlderIO::getSession()
 {
-    if ( !m_session )
-    {
-        m_session = new ApacheSession( this );
-    }
-    return m_session;
+    return nullptr;
 }
 
 void ApacheHanlderIO::checkCleanup()
 {
-    if (m_pool && (m_lastCheck < apr_time_now() + ( APR_USEC_PER_SEC * 60 )))
-    {
-        m_lastCheck = apr_time_now();
-
-        const char *path = nullptr;
-        apr_temp_dir_get( &path, m_pool );
-
-        char buffer[1024];
-        strncpy( buffer, path, 1024 );
-        int pathlen = strlen( path );
-        buffer[pathlen++] = '/';
-
-        apr_dir_t *dir = nullptr;
-        apr_dir_open( &dir, path, m_pool );
-
-        apr_time_t t = apr_time_now() - ( APR_USEC_PER_SEC * 60 * 60 * 6 ); //6hrs
-        apr_finfo_t finfo;
-
-        while ( apr_dir_read( &finfo, APR_FINFO_MTIME | APR_FINFO_NAME, dir ) != ENOENT )
-        {
-            if ( strncasecmp( SESSION_FILE_PREFIX, finfo.name, strlen(SESSION_FILE_PREFIX)) == 0
-                    && std::max(finfo.mtime, finfo.ctime) < t )
-            {
-                strcpy( &buffer[pathlen], finfo.name );
-                apr_file_remove( buffer, m_pool );
-
-#ifndef NDEBUG
-                ap_log_rerror(__FILE__, __LINE__, APLOG_WARNING, OK, 0, m_request, "Removing cookie file: '%s'", buffer);
-#endif
-            }
-        }
-
-        apr_dir_close( dir );
-    }
 }
 
 }

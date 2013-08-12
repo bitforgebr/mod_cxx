@@ -15,17 +15,18 @@
 
 #include "handlers.h"
 #include "globals_private.h"
+#include <sstream>
 
 #include <http_log.h>
 
 #ifdef APLOG_USE_MODULE
 APLOG_USE_MODULE(cxx);
 
-#define APACHE_LOG(LEVEL, SATUS, CODE, REC, STR, ...) \
-    do { ap_log_error(APLOG_MARK, LEVEL, SATUS, CODE, REC, STR, __VA_ARGS__ ); } while (false)
+#define APACHE_LOG(LEVEL, STATUS, CODE, REC, STR) \
+    do { std::stringstream ss; ss << STR; ap_log_error(APLOG_MARK, 0, LEVEL, CODE, REC, ss.str().c_str()); } while (false)
 #else
-#define APACHE_LOG(LEVEL, SATUS, CODE, REC, STR, ...) \
-    do { ap_log_error(APLOG_MARK, LEVEL, SATUS, REC, STR, __VA_ARGS__ ); } while (false)
+#define APACHE_LOG(LEVEL, STATUS, CODE, REC, STR) \
+    do { std::stringstream ss; ss << STR; ap_log_error(__FILE__, __LINE__, LEVEL, STATUS, REC, ss.str().c_str()); } while (false)
 #endif
 
 
