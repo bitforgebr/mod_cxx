@@ -116,6 +116,7 @@ extern "C" int apache_request_handler(request_rec* _request)
         handlerFactory = new HandlerFactory(_request, _request->server->process->pool, apps_dir);
 
         handlerIO.setAppsDir(apps_dir);
+        handlerIO.setAppConfig(dir_conf->app_config);
     }
 
     HandlerCache* handler = handlerFactory->getHandler(_request, dir_conf);
