@@ -14,7 +14,6 @@
 #include <setjmp.h>
 
 #include "handlers.h"
-#include "globals_private.h"
 #include <sstream>
 
 #include <http_log.h>

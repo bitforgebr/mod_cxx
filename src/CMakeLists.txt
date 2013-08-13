@@ -49,6 +49,7 @@ install(FILES
     globals.h
     handlers.h
     handlers_helpers.h
+    handlers/apachehandler.h
     DESTINATION include/mod_cxx)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
